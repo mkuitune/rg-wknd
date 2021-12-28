@@ -84,6 +84,9 @@ impl Ray3{
     pub fn point_at_parameter(&self, t:f32) -> Vec3 {
         self.a + (self.b * t)
     }
+    pub fn new(origin:Vec3, dir:Vec3) -> Ray3{
+        Ray3{a: origin, b: dir}
+    }
 }
 
 }
