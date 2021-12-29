@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-pub mod vec3 {
 use std::ops::{Add, Sub, Mul};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -89,4 +88,13 @@ impl Ray3{
     }
 }
 
+pub fn hit_sphere(center:Vec3, radius:f32, r:&Ray3) -> bool {
+    let oc = r.origin() - center;
+    let dir = r.direction();
+    let a = dir * dir;
+    let b = 2.0 * (oc * dir);
+    let c = (oc * oc) - radius*radius;
+    let discrm = b * b - 4.0 * a * c;
+    discrm > 0.0
 }
+

@@ -1,11 +1,8 @@
 #![allow(dead_code)]
 
 mod vec3;
-use vec3::vec3::Vec3;
-use vec3::vec3::Ray3;
-use vec3::vec3::vec3;
-use vec3::vec3::lerp3;
-use vec3::vec3::unit_vector;
+use vec3::{Vec3, Ray3, vec3, lerp3, unit_vector, 
+    hit_sphere};
 
 fn test_ppm(){
 
@@ -25,10 +22,19 @@ fn test_ppm(){
     }
 }
 
-fn color(r : Ray3) -> Vec3 {
+fn color2(r : Ray3) -> Vec3 {
     let udir = unit_vector(r.direction());
     let t = 0.5 * (udir.y + 1.0);
     lerp3(Vec3{x:1.0,y:1.0,z:1.0}, Vec3{x:0.5, y:0.7, z:1.0}, t)
+}
+
+fn color3(r : &Ray3) -> Vec3 {
+    if hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &r) {
+        return vec3(1.0, 0.0, 0.0);        
+    }
+    let udir = unit_vector(r.direction());
+    let t = 0.5 * (udir.y + 1.0);
+    lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t)
 }
 
 fn gradient_bgr(){
@@ -46,7 +52,7 @@ fn gradient_bgr(){
             let u = (i as f32) / fnx;
             let v = (j as f32) / fny;
             let r = Ray3::new(origin, lower_left + (horizontal * u) + (vertical * v));
-            let col = color(r);
+            let col = color3(&r);
             let ir = (255.99 * col.x) as i32;
             let ig = (255.99 * col.y) as i32;
             let ib = (255.99 * col.z) as i32;
