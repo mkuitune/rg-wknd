@@ -88,13 +88,18 @@ impl Ray3{
     }
 }
 
-pub fn hit_sphere(center:Vec3, radius:f32, r:&Ray3) -> bool {
+pub fn hit_sphere(center:Vec3, radius:f32, r:&Ray3) -> f32{
     let oc = r.origin() - center;
     let dir = r.direction();
     let a = dir * dir;
     let b = 2.0 * (oc * dir);
     let c = (oc * oc) - radius*radius;
     let discrm = b * b - 4.0 * a * c;
-    discrm > 0.0
+    if discrm < 0.0{
+        -1.0
+    }else{
+        (-b - discrm.sqrt())/ (2.0 * a)
+    }
+
 }
 

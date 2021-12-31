@@ -29,8 +29,20 @@ fn color2(r : Ray3) -> Vec3 {
 }
 
 fn color3(r : &Ray3) -> Vec3 {
-    if hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &r) {
+    if hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &r)  > 0.0 {
         return vec3(1.0, 0.0, 0.0);        
+    }
+    let udir = unit_vector(r.direction());
+    let t = 0.5 * (udir.y + 1.0);
+    lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t)
+}
+
+fn color4(r : &Ray3) -> Vec3 {
+
+    let t = hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &r);
+    if t > 0.0 {
+        let N = unit_vector(r.point_at_parameter(t) - vec3(0.0,0.0,-1.0));
+        return vec3(N.x + 1.0, N.y + 1.0, N.z + 1.0) * 0.5;        
     }
     let udir = unit_vector(r.direction());
     let t = 0.5 * (udir.y + 1.0);
@@ -52,7 +64,7 @@ fn gradient_bgr(){
             let u = (i as f32) / fnx;
             let v = (j as f32) / fny;
             let r = Ray3::new(origin, lower_left + (horizontal * u) + (vertical * v));
-            let col = color3(&r);
+            let col = color4(&r);
             let ir = (255.99 * col.x) as i32;
             let ig = (255.99 * col.y) as i32;
             let ib = (255.99 * col.z) as i32;
