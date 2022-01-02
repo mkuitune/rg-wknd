@@ -103,3 +103,11 @@ pub fn hit_sphere(center:Vec3, radius:f32, r:&Ray3) -> f32{
 
 }
 
+use Vec3 as ColorRGB;
+
+pub fn write_color_stdout(col : ColorRGB){
+    let ir = (255.99 * col.x) as i32;
+    let ig = (255.99 * col.y) as i32;
+    let ib = (255.99 * col.z) as i32;
+    println!("{} {} {}", ir, ig, ib); 
+}
