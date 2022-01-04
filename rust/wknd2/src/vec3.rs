@@ -6,8 +6,11 @@ pub struct Vec3 {
     pub x : f32, pub y: f32, pub z:f32
 }
 impl Vec3 {
-    fn length(self) -> f32{
+    fn length2(self) -> f32{
         self.x * self.x + self.y * self.y + self.z * self.z
+    }
+    fn length(self) -> f32{
+        self.length2().sqrt()
     }
 }
 
@@ -75,16 +78,17 @@ pub fn lerp3(a:Vec3, b:Vec3, t : f32) -> Vec3{
 //
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Ray3{
-    pub a : Vec3, pub b : Vec3
+    pub orig : Vec3, pub dir : Vec3
 }
+
 impl Ray3{
-    pub fn origin(&self) -> Vec3 {self.a} 
-    pub fn direction(&self) -> Vec3 {self.b} 
-    pub fn point_at_parameter(&self, t:f32) -> Vec3 {
-        self.a + (self.b * t)
+    pub fn origin(&self) -> Vec3 {self.orig} 
+    pub fn direction(&self) -> Vec3 {self.dir} 
+    pub fn at(&self, t:f32) -> Vec3 {
+        self.orig + (self.dir * t)
     }
-    pub fn new(origin:Vec3, dir:Vec3) -> Ray3{
-        Ray3{a: origin, b: dir}
+    pub fn new(origin:Vec3, direction:Vec3) -> Ray3{
+        Ray3{orig: origin, dir: direction}
     }
 }
 
@@ -104,10 +108,19 @@ pub fn hit_sphere(center:Vec3, radius:f32, r:&Ray3) -> f32{
 }
 
 use Vec3 as ColorRGB;
+use std::fs::File;
+use std::io::Write;
 
 pub fn write_color_stdout(col : ColorRGB){
     let ir = (255.99 * col.x) as i32;
     let ig = (255.99 * col.y) as i32;
     let ib = (255.99 * col.z) as i32;
     println!("{} {} {}", ir, ig, ib); 
+}
+
+pub fn write_color_file(file : &mut File, col : ColorRGB){
+    let ir = (255.99 * col.x) as i32;
+    let ig = (255.99 * col.y) as i32;
+    let ib = (255.99 * col.z) as i32;
+    writeln!(file, "{} {} {}", ir, ig, ib); 
 }
