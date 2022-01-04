@@ -16,12 +16,11 @@ fn test_ppm(){
     let image_width = 200;
     let image_height = 100;
     println!("P3\n{} {}\n255", image_width, image_height);
-    let fnx = image_width as f32;
-    let fny = image_height as f32;
+    let fnx = image_width as f64;
+    let fny = image_height as f64;
     for j in (0 .. image_height).rev() {
-        for i in 0 .. image_width
- {
-            let col = vec3((i as f32) / fnx, (j as f32) / fny, 0.2);
+        for i in 0 .. image_width {
+            let col = vec3((i as f64) / fnx, (j as f64) / fny, 0.2);
             write_color_stdout(col);
         }
     }
@@ -69,7 +68,7 @@ fn ray_color(r : &Ray3) -> Vec3 {
 fn gradient_bgr(){
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
-    let image_height = (image_width as f32 / aspect_ratio) as i32;
+    let image_height = (image_width as f64 / aspect_ratio) as i32;
     let mut file = File::create("out.ppm").unwrap();
     //println!("P3\n{} {}\n255", image_width, image_height);
     writeln!(file, "P3\n{} {}\n255", image_width, image_height);
@@ -84,13 +83,13 @@ fn gradient_bgr(){
     let vertical = vec3(0.0, viewport_height, 0.0);
     let lower_left_corner = origin - (horizontal * 0.5) - (vertical * 0.5) - vec3(0.0, 0.0, focal_length);
 
-    let f_w = (image_width - 1) as f32;
-    let f_h = (image_height -1) as f32;
+    let f_w = (image_width - 1) as f64;
+    let f_h = (image_height -1) as f64;
     for j in (0 .. image_height).rev() {
         for i in 0 .. image_width
         {
-            let u = (i as f32) / f_w;
-            let v = (j as f32) / f_h;
+            let u = (i as f64) / f_w;
+            let v = (j as f64) / f_h;
             let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
             let col = ray_color(&r);
             //write_color_stdout(col);
