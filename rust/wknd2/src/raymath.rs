@@ -74,13 +74,6 @@ impl Div<f64> for Vec3 {
     }
 }
 
-//impl Mul<Vec3> for f32{
-//    type Output = Vec3;
-//    fn mul(self, t:Vec3) -> Vec3 {
-//            Vec3{x : self * t.x, y: self * t.y, z:self * t.z
-//    }
-//}
-
 impl Add for Vec3 {
     type Output = Self;
     fn add(self, other:Self) -> Self {
