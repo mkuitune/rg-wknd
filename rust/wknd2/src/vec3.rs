@@ -3,6 +3,19 @@ use std::iter::OnceWith;
 use std::ops::{Add, Sub, Mul, Div};
 use num::{NumCast, cast};
 
+//rand
+
+use rand::{Rng, thread_rng};
+
+pub fn random_f64_normalized() -> f64{
+    thread_rng().gen::<f64>()
+}
+
+pub fn random_f64(min:f64, max:f64) -> f64{
+    thread_rng().gen_range(min .. max)
+}
+
+//vec3
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec3 {
     pub x : f64, pub y: f64, pub z:f64
@@ -11,11 +24,32 @@ impl Vec3 {
     pub fn zeros() ->Vec3{
         Vec3{x:0.0, y:0.0,z:0.0}
     }
+    pub fn ones() ->Vec3{
+        Vec3{x:1.0, y:1.0,z:1.0}
+    }
+    pub fn mul_elements(a:Vec3, b:Vec3)->Vec3{
+        Vec3{x:a.x * b.x, y : a.y * b.y, z:a.z * b.z}
+    }
     pub fn length2(self) -> f64{
         self.x * self.x + self.y * self.y + self.z * self.z
     }
     pub fn length(self) -> f64{
         self.length2().sqrt()
+    }
+    pub fn random_normalized() ->Vec3{
+        Vec3{x:random_f64_normalized(), y:random_f64_normalized(), z:random_f64_normalized()}
+    }
+    pub fn random(min:f64, max:f64) ->Vec3{
+        Vec3{x:random_f64(min, max), y:random_f64(min, max), z:random_f64(min, max)}
+    }
+    pub fn random_in_unit_sphere() -> Vec3{
+        while true {
+            let v = Vec3::random(-1.0, 1.0);
+            if v.length2() < 1.0 {
+                return v;
+            }
+        }
+        return Vec3::zeros();
     }
 }
 
@@ -282,9 +316,9 @@ pub fn write_color_file(file : &mut File, col : ColorRGB){
 
 pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixel:i32){
     let scale = 1.0 / (samples_per_pixel as f64);
-    let r = clampf64(col.x * scale, 0.0, 0.999);
-    let g = clampf64(col.y * scale, 0.0, 0.999);
-    let b = clampf64(col.z * scale, 0.0, 0.999);
+    let r = clampf64((col.x * scale).sqrt(), 0.0, 0.999);
+    let g = clampf64((col.y * scale).sqrt(), 0.0, 0.999);
+    let b = clampf64((col.z * scale).sqrt(), 0.0, 0.999);
 
     let ir = (256.0 * r) as i32;
     let ig = (256.0 * g) as i32;
@@ -294,25 +328,13 @@ pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixe
 
 // constants
 pub mod constants{
-    pub const INFINITY_F64 : f64= f64::MAX;
+    pub const INFINITY_F64 : f64= f64::MAX; 
     pub const PI_F64 : f64= 3.1415926535897932385;
 }
 
 // utilities
 pub fn degrees_to_radians(degrees:f64) -> f64{
    degrees * constants::PI_F64 / 180.0 
-}
-
-//rand
-
-use rand::{Rng, thread_rng};
-
-pub fn random_f64_normalized() -> f64{
-    thread_rng().gen::<f64>()
-}
-
-pub fn random_f64(min:f64, max:f64) -> f64{
-    thread_rng().gen_range(min .. max)
 }
 
 // Camera
