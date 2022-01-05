@@ -10,7 +10,10 @@ use vec3::{Vec3, Ray3, vec3, lerp3, unit_vector,
 use std::fs::File;
 use std::io::Write;
 
-use crate::vec3::write_color_file;
+use crate::vec3::{write_color_file, Camera, random_f64_normalized, write_color_file_multi};
+
+extern crate pbr;
+use pbr::ProgressBar;
 
 fn test_ppm(){
 
@@ -86,6 +89,7 @@ fn do_draw(){
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
+    let samples_per_pixel = 10;
 
     // World
     let mut world = HittableObject::mk_list();
@@ -94,31 +98,43 @@ fn do_draw(){
     let world_obj = HittableObject::wrap(world);
 
     // camera
-    let viewport_height = 2.0;
-    let viewport_width = aspect_ratio * viewport_height;
-    let focal_length = 1.0;
+    let mut cam = Camera::default();
+    //let viewport_height = 2.0;
+    //let viewport_width = aspect_ratio * viewport_height;
+    //let focal_length = 1.0;
 
-    let origin = vec3(0.0,0.0,0.0);
-    let horizontal = vec3(viewport_width, 0.0, 0.0);
-    let vertical = vec3(0.0, viewport_height, 0.0);
-    let lower_left_corner = origin - (horizontal * 0.5) - (vertical * 0.5) - vec3(0.0, 0.0, focal_length);
+    //let origin = vec3(0.0,0.0,0.0);
+    //let horizontal = vec3(viewport_width, 0.0, 0.0);
+    //let vertical = vec3(0.0, viewport_height, 0.0);
+    //let lower_left_corner = origin - (horizontal * 0.5) - (vertical * 0.5) - vec3(0.0, 0.0, focal_length);
 
     let f_w = (image_width - 1) as f64;
     let f_h = (image_height -1) as f64;
 
     // Render
+    let mut pb = ProgressBar::new(image_height as u64);
+    //pb.format("╢▌▌░╟");
+
     let mut file = File::create("out.ppm").unwrap();
     //println!("P3\n{} {}\n255", image_width, image_height);
     writeln!(file, "P3\n{} {}\n255", image_width, image_height);
+
     for j in (0 .. image_height).rev() {
+        let fj = j as f64;
+        pb.inc();
         for i in 0 .. image_width
         {
-            let u = (i as f64) / f_w;
-            let v = (j as f64) / f_h;
-            let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
-            let col = ray_color(&r, &world_obj);
+            let fi = i as f64;
+            let mut pixel_color = Vec3::zeros();
+            for s in 0 .. samples_per_pixel {
+                let u = (fi + random_f64_normalized()) / f_w;
+                let v = (fj + random_f64_normalized()) / f_h;
+                let r = cam.get_ray(u, v);
+                //let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
+                pixel_color = pixel_color + ray_color(&r, &world_obj);
+            }
             //write_color_stdout(col);
-            write_color_file(&mut file, col);
+            write_color_file_multi(&mut file,pixel_color, samples_per_pixel );
         }
     }
 }

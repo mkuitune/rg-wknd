@@ -8,10 +8,13 @@ pub struct Vec3 {
     pub x : f64, pub y: f64, pub z:f64
 }
 impl Vec3 {
-    fn length2(self) -> f64{
+    pub fn zeros() ->Vec3{
+        Vec3{x:0.0, y:0.0,z:0.0}
+    }
+    pub fn length2(self) -> f64{
         self.x * self.x + self.y * self.y + self.z * self.z
     }
-    fn length(self) -> f64{
+    pub fn length(self) -> f64{
         self.length2().sqrt()
     }
 }
@@ -257,6 +260,12 @@ use Vec3 as ColorRGB;
 use std::fs::File;
 use std::io::Write;
 
+pub fn clampf64(x:f64, min:f64, max:f64)->f64{
+    if x < min {min}
+    else if x > max {max}
+    else {x}
+}
+
 pub fn write_color_stdout(col : ColorRGB){
     let ir = (255.99 * col.x) as i32;
     let ig = (255.99 * col.y) as i32;
@@ -271,6 +280,18 @@ pub fn write_color_file(file : &mut File, col : ColorRGB){
     writeln!(file, "{} {} {}", ir, ig, ib); 
 }
 
+pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixel:i32){
+    let scale = 1.0 / (samples_per_pixel as f64);
+    let r = clampf64(col.x * scale, 0.0, 0.999);
+    let g = clampf64(col.y * scale, 0.0, 0.999);
+    let b = clampf64(col.z * scale, 0.0, 0.999);
+
+    let ir = (256.0 * r) as i32;
+    let ig = (256.0 * g) as i32;
+    let ib = (256.0 * b) as i32;
+    writeln!(file, "{} {} {}", ir, ig, ib); 
+}
+
 // constants
 pub mod constants{
     pub const INFINITY_F64 : f64= f64::MAX;
@@ -280,4 +301,49 @@ pub mod constants{
 // utilities
 pub fn degrees_to_radians(degrees:f64) -> f64{
    degrees * constants::PI_F64 / 180.0 
+}
+
+//rand
+
+use rand::{Rng, thread_rng};
+
+pub fn random_f64_normalized() -> f64{
+    thread_rng().gen::<f64>()
+}
+
+pub fn random_f64(min:f64, max:f64) -> f64{
+    thread_rng().gen_range(min .. max)
+}
+
+// Camera
+
+pub struct Camera{
+    pub origin : Vec3,
+    pub horizontal : Vec3,
+    pub vertical : Vec3,
+    pub lower_left_corner : Vec3
+}
+impl Default for Camera {
+    fn default() -> Camera{
+        let aspect_ratio:f64 = 16.0 / 9.0;
+        let viewport_height:f64 = 2.0;
+        let viewport_width:f64 = aspect_ratio * viewport_height;
+        let focal_length:f64 = 1.0; 
+    
+        let origin = vec3(0.0, 0.0, 0.0);
+        let horizontal = vec3(viewport_width, 0.0, 0.0);
+        let vertical  = vec3(0.0, viewport_height, 0.0);
+        let lower_left_corner = origin - (horizontal/2.0)  - (vertical/2.0) - vec3(0.0, 0.0, focal_length);
+
+        Camera{
+            origin:origin, horizontal:horizontal, vertical:vertical, lower_left_corner:lower_left_corner
+        }
+    }
+}
+
+impl Camera {
+    pub fn get_ray(&self, u:f64, v:f64) -> Ray3{
+        let raydir = self.lower_left_corner + (self.horizontal * u) + (self.vertical * v) - self.origin;
+        Ray3::new(self.origin,raydir)
+    }
 }
