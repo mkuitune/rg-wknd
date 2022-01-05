@@ -4,7 +4,8 @@
 mod vec3;
 
 use vec3::{Vec3, Ray3, vec3, lerp3, unit_vector, 
-    hit_sphere, write_color_stdout};
+    hit_sphere, write_color_stdout, 
+    HitRecord, HittableObject, constants, SamplingCfg, Sphere, HitRay};
 
 use std::fs::File;
 use std::io::Write;
@@ -45,33 +46,52 @@ fn color4(r : &Ray3) -> Vec3 {
 
     let t = hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &r);
     if t > 0.0 {
-        let N = unit_vector(r.at(t) - vec3(0.0,0.0,-1.0));
-        return vec3(N.x + 1.0, N.y + 1.0, N.z + 1.0) * 0.5;        
+        let n = unit_vector(r.at(t) - vec3(0.0,0.0,-1.0));
+        return vec3(n.x + 1.0, n.y + 1.0, n.z + 1.0) * 0.5;        
     }
     let udir = unit_vector(r.direction());
     let t = 0.5 * (udir.y + 1.0);
     lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t)
 }
 
-fn ray_color(r : &Ray3) -> Vec3 {
+fn ray_color_1(r : &Ray3) -> Vec3 {
 
     let t = hit_sphere(vec3(0.0, 0.0, -1.0), 0.5, &r);
     if t > 0.0 {
-        let N = unit_vector(r.at(t) - vec3(0.0,0.0,-1.0));
-        return vec3(N.x + 1.0, N.y + 1.0, N.z + 1.0) * 0.5;        
+        let n = unit_vector(r.at(t) - vec3(0.0,0.0,-1.0));
+        return vec3(n.x + 1.0, n.y + 1.0, n.z + 1.0) * 0.5;        
     }
     let udir = unit_vector(r.direction());
     let t = 0.5 * (udir.y + 1.0);
     lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t)
 }
 
-fn gradient_bgr(){
+fn ray_color(r : &Ray3, world:&dyn HitRay) -> Vec3 {
+    let cfg= SamplingCfg::new(0.0, constants::INFINITY_F64);
+    let rec = world.hit(r, cfg);
+    match rec {
+        Some(hit) => {
+            (hit.normal + vec3(1.0, 1.0, 1.0)) * 0.5
+        },
+        None =>{
+            let udir = unit_vector(r.direction());
+            let t = 0.5 * (udir.y + 1.0);
+            lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t)
+        }
+    }
+}
+
+fn do_draw(){
+    // Image
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let mut file = File::create("out.ppm").unwrap();
-    //println!("P3\n{} {}\n255", image_width, image_height);
-    writeln!(file, "P3\n{} {}\n255", image_width, image_height);
+
+    // World
+    let mut world = HittableObject::mk_list();
+    world.push(HittableObject::Sphere(Sphere{center:vec3(0.0,0.0,-1.0), radius:0.5}));
+    world.push(HittableObject::Sphere(Sphere{center:vec3(0.0,-100.5,-1.0), radius:100.0}));
+    let world_obj = HittableObject::wrap(world);
 
     // camera
     let viewport_height = 2.0;
@@ -85,13 +105,18 @@ fn gradient_bgr(){
 
     let f_w = (image_width - 1) as f64;
     let f_h = (image_height -1) as f64;
+
+    // Render
+    let mut file = File::create("out.ppm").unwrap();
+    //println!("P3\n{} {}\n255", image_width, image_height);
+    writeln!(file, "P3\n{} {}\n255", image_width, image_height);
     for j in (0 .. image_height).rev() {
         for i in 0 .. image_width
         {
             let u = (i as f64) / f_w;
             let v = (j as f64) / f_h;
             let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
-            let col = ray_color(&r);
+            let col = ray_color(&r, &world_obj);
             //write_color_stdout(col);
             write_color_file(&mut file, col);
         }
@@ -107,5 +132,5 @@ fn main() {
 
     //test_ppm();
 
-    gradient_bgr();
+    do_draw();
 }

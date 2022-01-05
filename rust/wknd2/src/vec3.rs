@@ -1,5 +1,7 @@
 #![allow(dead_code)]
+use std::iter::OnceWith;
 use std::ops::{Add, Sub, Mul, Div};
+use num::{NumCast, cast};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec3 {
@@ -130,11 +132,12 @@ pub fn hit_sphere(center:Vec3, radius:f64, r:&Ray3) -> f64{
 
 // sampling cfg
 #[derive(Debug, Copy, Clone)]
-struct sampling_cfg{
+pub struct SamplingCfg{
     t_min : f64, t_max : f64
 }
 
-impl sampling_cfg{
+impl SamplingCfg{
+    pub fn new(minv:f64, maxv:f64) -> SamplingCfg{SamplingCfg{t_min:minv, t_max:maxv}}
     pub fn inrange(&self, t:f64)->bool{t >= self.t_min && t <= self.t_max}
     pub fn inrange32(&self, t:f32)->bool{
         let tl = t as f64;
@@ -144,36 +147,44 @@ impl sampling_cfg{
 
 // Hittable
 #[derive(Debug,Default,Copy, Clone)]
-struct hit_record{
+pub struct HitRecord{
     pub p : Vec3,
     pub normal : Vec3,
     pub t : f64,
     pub front_face : bool
 }
-impl hit_record{
+impl HitRecord{
     pub fn set_face_normal(&mut self, r:&Ray3, outward_normal:Vec3){
         self.front_face = dot(r.dir, outward_normal) < 0.0;
         self.normal = if self.front_face { outward_normal} else {outward_normal * -1.0};
     }
 }
 
-trait hittable{
-    fn hit(&self, r:&Ray3, cfg:sampling_cfg)  -> Option<hit_record>;
+pub trait HitRay{
+    fn hit(&self, r:&Ray3, cfg:SamplingCfg)  -> Option<HitRecord>;
 }
 
-struct sphere {
-    center : Vec3,
-    radius : f64
+pub struct Sphere {
+    pub center : Vec3,
+    pub radius : f64
 }
 
-impl sphere {
-    pub fn new(cen:Vec3, r:f64) -> sphere{
-        sphere{center:cen, radius:r}
+impl Sphere {
+    pub fn new(cen:Vec3, r:f64) -> Sphere{
+        Sphere{center:cen, radius:r}
+    }
+    
+    pub fn new2<T:NumCast>(cx:T,cy:T,cz:T, r:T) -> Sphere {
+        let vx = cast(cx).unwrap_or_default();
+        let vy = cast(cy).unwrap_or_default();
+        let vz = cast(cz).unwrap_or_default();
+        let sr = cast(r).unwrap_or_default();
+        Sphere{center:vec3(vx, vy,vz), radius:sr}
     }
 }
 
-impl hittable for sphere {
-    fn hit(&self, r:&Ray3, cfg:sampling_cfg)  -> Option<hit_record>{
+impl HitRay for Sphere {
+    fn hit(&self, r:&Ray3, cfg:SamplingCfg)  -> Option<HitRecord>{
         let oc = r.origin() - self.center;
         let a = r.dir.length2();
         let half_b = dot(oc, r.dir);
@@ -196,7 +207,7 @@ impl hittable for sphere {
             }
         }
 
-        let mut record : hit_record = hit_record::default();
+        let mut record : HitRecord = HitRecord::default();
         record.t = root;
         record.p = r.at(record.t);
         let outward_normal = (record.p - self.center) / self.radius;
@@ -206,25 +217,37 @@ impl hittable for sphere {
 }
 
 // hittable list
-struct hittable_list{
-    pub objects : Vec<Box<dyn hittable>>
+pub enum HittableObject{
+    Sphere(Sphere),
+    List(Vec<HittableObject>)
 }
 
-impl hittable for hittable_list{
+impl HittableObject{
+    pub fn mk_list() ->Vec<HittableObject> {Vec::new()}
+    pub fn wrap(v:Vec<HittableObject>) -> HittableObject{
+        HittableObject::List(v)
+    }
+}
 
-    fn hit(&self, r:&Ray3, mut cfg:sampling_cfg)  -> Option<hit_record>{
+impl HitRay for HittableObject{
+    fn hit(&self, r:&Ray3, mut cfg:SamplingCfg)  -> Option<HitRecord>{
         let mut res = None;
-        for obj in &self.objects {
-            let hitresult = obj.hit(r, cfg);
-            match hitresult {
-                Some(hit) => {
-                    cfg.t_max = hit.t;
-                    res = hitresult;
-                },
-                None => {}
+        match self {
+            HittableObject::Sphere(sphere) => {sphere.hit(r, cfg)}
+            HittableObject::List(objs) => {
+                for obj in objs.iter() {
+                    let hitresult = obj.hit(r, cfg);
+                    match hitresult {
+                        Some(hit) => {
+                            cfg.t_max = hit.t;
+                            res = hitresult;
+                        },
+                        None => {}
+                    }
+                }
+                res
             }
         }
-        res
     }
 }
 
@@ -249,12 +272,12 @@ pub fn write_color_file(file : &mut File, col : ColorRGB){
 }
 
 // constants
-mod constants{
-    pub const infinity_f64 : f64= f64::MAX;
-    pub const pi_f64 : f64= 3.1415926535897932385;
+pub mod constants{
+    pub const INFINITY_F64 : f64= f64::MAX;
+    pub const PI_F64 : f64= 3.1415926535897932385;
 }
 
 // utilities
 pub fn degrees_to_radians(degrees:f64) -> f64{
-   degrees * constants::pi_f64 / 180.0 
+   degrees * constants::PI_F64 / 180.0 
 }
