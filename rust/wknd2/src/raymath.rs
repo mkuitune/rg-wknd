@@ -2,7 +2,7 @@
 use std::iter::OnceWith;
 use std::ops::{Add, Sub, Mul, Div};
 use num::{NumCast, cast};
-
+use std::{rc::Rc};
 //rand
 
 use rand::{Rng, thread_rng};
@@ -20,28 +20,52 @@ pub fn random_f64(min:f64, max:f64) -> f64{
 pub struct Vec3 {
     pub x : f64, pub y: f64, pub z:f64
 }
+
+pub fn vec3(x : f64, y:f64, z:f64)->Vec3 {
+    Vec3{x:x, y:y, z:z}
+}
+
+pub fn unit_vector(v:Vec3) -> Vec3{
+    let il = 1.0 / v.length();
+    v * il
+}
+
 impl Vec3 {
+    pub fn reflect(&self, n:Vec3) -> Vec3{
+        *self - (n*(*self * n)*2.0)
+    }
+    pub fn near_zero(&self)->bool{
+        let s = 1e-8;
+        self.x.abs() < s && self.y.abs() < s && self.z.abs() < s
+    }
     pub fn zeros() ->Vec3{
         Vec3{x:0.0, y:0.0,z:0.0}
     }
+
     pub fn ones() ->Vec3{
         Vec3{x:1.0, y:1.0,z:1.0}
     }
-    pub fn mul_elements(a:Vec3, b:Vec3)->Vec3{
-        Vec3{x:a.x * b.x, y : a.y * b.y, z:a.z * b.z}
+
+    pub fn mul_elements(&self, b:Vec3)->Vec3{
+        Vec3{x:self.x * b.x, y : self.y * b.y, z:self.z * b.z}
     }
+
     pub fn length2(self) -> f64{
         self.x * self.x + self.y * self.y + self.z * self.z
     }
+
     pub fn length(self) -> f64{
         self.length2().sqrt()
     }
+
     pub fn random_normalized() ->Vec3{
         Vec3{x:random_f64_normalized(), y:random_f64_normalized(), z:random_f64_normalized()}
     }
+
     pub fn random(min:f64, max:f64) ->Vec3{
         Vec3{x:random_f64(min, max), y:random_f64(min, max), z:random_f64(min, max)}
     }
+
     pub fn random_in_unit_sphere() -> Vec3{
         while true {
             let v = Vec3::random(-1.0, 1.0);
@@ -50,6 +74,16 @@ impl Vec3 {
             }
         }
         return Vec3::zeros();
+    }
+
+    pub fn random_in_hemisphere(normal:Vec3) -> Vec3{
+        let v = Vec3::random_in_unit_sphere();
+        if normal * v > 0.0 {v}
+        else {v * (-1.0)}
+    }
+
+    pub fn random_unit_vector()->Vec3{
+        unit_vector(Vec3::random_in_unit_sphere())        
     }
 }
 
@@ -96,14 +130,6 @@ impl Sub for Vec3 {
     }
 }
 
-pub fn vec3(x : f64, y:f64, z:f64)->Vec3 {
-    Vec3{x:x, y:y, z:z}
-}
-
-pub fn unit_vector(v:Vec3) -> Vec3{
-    let il = 1.0 / v.length();
-    v * il
-}
 
 pub fn lerp3(a:Vec3, b:Vec3, t : f64) -> Vec3{
     let u = 1.0 - t;
@@ -175,15 +201,82 @@ impl SamplingCfg{
     }
 }
 
+// Material
+pub struct ScatterResult{
+    pub attenuation :Vec3,
+    pub scattered : Ray3
+}
+
+#[derive(Debug)]
+struct Lambertian{albedo:Vec3}
+impl Lambertian{
+    fn scatter(&self, rec:HitRecord) -> ScatterResult{
+        let mut scatter_direction = rec.normal + Vec3::random_unit_vector();
+        if scatter_direction.near_zero() {
+            scatter_direction = rec.normal;
+        }
+        ScatterResult{attenuation:self.albedo, scattered : Ray3::new(rec.p, scatter_direction)}
+    }
+}
+#[derive(Debug)]
+struct Metal{
+    albedo:Vec3
+}
+impl Metal{
+    fn scatter(&self, r_in:Ray3,rec:HitRecord) -> Option<ScatterResult>{
+        let reflected = unit_vector(r_in.dir).reflect(rec.normal);
+        let scattered = Ray3::new(rec.p, reflected);
+
+        if scattered.dir * rec.normal > 0.0
+        {
+            let res = ScatterResult{attenuation:self.albedo, scattered : scattered};
+            Some(res)
+        }
+        else {
+            None
+        }
+    }
+}
+#[derive(Debug)]
+pub enum Material{
+    Lambertian(Lambertian),
+    Metal(Metal)
+}
+
+impl Material{
+    pub fn mk_lambert(albedo:Vec3)->Material{Material::Lambertian(Lambertian{albedo:albedo})}
+    pub fn mk_metal(albedo:Vec3)->Material{Material::Metal(Metal{albedo:albedo})}
+
+    pub fn scatter(&self, r_in:Ray3, rec:HitRecord) ->Option<ScatterResult>{
+        match self {
+            Material::Lambertian(lamb) =>{
+                Some(lamb.scatter(rec))
+            }
+            Material::Metal(metal) =>{
+                metal.scatter(r_in, rec)
+            }
+            _ => None
+        }
+    }
+}
+
+pub type MaterialCollection = Vec<Material>;
+pub type MaterialId = i32;
+
 // Hittable
-#[derive(Debug,Default,Copy, Clone)]
+//#[derive(Debug,Default,Copy, Clone)]
+#[derive(Debug,Default, Copy, Clone)]
 pub struct HitRecord{
     pub p : Vec3,
     pub normal : Vec3,
+    pub mat : MaterialId,
     pub t : f64,
     pub front_face : bool
 }
 impl HitRecord{
+    pub fn new_default(mat:MaterialId)->HitRecord{
+        HitRecord{p:Vec3::zeros(), normal:Vec3::zeros(), mat:mat, t:0.0, front_face:false}
+    }
     pub fn set_face_normal(&mut self, r:&Ray3, outward_normal:Vec3){
         self.front_face = dot(r.dir, outward_normal) < 0.0;
         self.normal = if self.front_face { outward_normal} else {outward_normal * -1.0};
@@ -196,20 +289,21 @@ pub trait HitRay{
 
 pub struct Sphere {
     pub center : Vec3,
-    pub radius : f64
+    pub radius : f64,
+    pub material : MaterialId
 }
 
 impl Sphere {
-    pub fn new(cen:Vec3, r:f64) -> Sphere{
-        Sphere{center:cen, radius:r}
+    pub fn new(cen:Vec3, r:f64, mat:MaterialId) -> Sphere{
+        Sphere{center:cen, radius:r, material:mat}
     }
     
-    pub fn new2<T:NumCast>(cx:T,cy:T,cz:T, r:T) -> Sphere {
+    pub fn new2<T:NumCast>(cx:T,cy:T,cz:T, r:T, mat:MaterialId) -> Sphere {
         let vx = cast(cx).unwrap_or_default();
         let vy = cast(cy).unwrap_or_default();
         let vz = cast(cz).unwrap_or_default();
         let sr = cast(r).unwrap_or_default();
-        Sphere{center:vec3(vx, vy,vz), radius:sr}
+        Sphere{center:vec3(vx, vy,vz), radius:sr, material:mat}
     }
 }
 
@@ -237,7 +331,7 @@ impl HitRay for Sphere {
             }
         }
 
-        let mut record : HitRecord = HitRecord::default();
+        let mut record : HitRecord = HitRecord::new_default(self.material);
         record.t = root;
         record.p = r.at(record.t);
         let outward_normal = (record.p - self.center) / self.radius;
