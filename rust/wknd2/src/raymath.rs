@@ -260,8 +260,17 @@ impl Material{
     }
 }
 
-pub type MaterialCollection = Vec<Material>;
-pub type MaterialId = i32;
+pub struct MaterialCollection{
+    pub materials:Vec<Material>
+}
+pub type MaterialId = usize;
+impl MaterialCollection{
+    pub fn new()->MaterialCollection{MaterialCollection{materials:vec![]}}
+    pub fn add(&self, mat:Material)->MaterialId{
+        self.materials.push(mat);
+        self.materials.len() - 1
+    }
+}
 
 // Hittable
 //#[derive(Debug,Default,Copy, Clone)]

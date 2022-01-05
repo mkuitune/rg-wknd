@@ -24,7 +24,7 @@ fn ray_color(mut r : Ray3, world:&dyn HitRay, mats:&MaterialCollection, mut dept
         match rec {
             Some(hit) => {
                 //let target = hit.p + hit.normal + Vec3::random_unit_vector();
-                let scatteredResult = mats[hit.mat as usize].scatter(r, hit);
+                let scatteredResult = mats.materials[hit.mat].scatter(r, hit);
                 match scatteredResult {
                     Some(scattered)=>{
                         transmissibility = scattered.attenuation.mul_elements(transmissibility);
@@ -63,15 +63,11 @@ fn do_draw(){
     let samples_per_pixel = 100;
     let max_depth = 50;
     // World
-    let mut mats : MaterialCollection = vec![];
-    mats.push(Material::mk_lambert(vec3(0.8, 0.8, 0.0))); // 0
-    let material_ground = (mats.len() - 1) as i32;
-    mats.push(Material::mk_lambert(vec3(0.7, 0.3, 0.3))); // 1
-    let material_center = (mats.len() - 1) as i32;
-    mats.push(Material::mk_metal(vec3(0.8, 0.8, 0.8))); // 2
-    let material_left = (mats.len() - 1) as i32;
-    mats.push(Material::mk_metal(vec3(0.8, 0.6, 0.2))); // 3
-    let material_right = (mats.len() - 1) as i32;
+    let mut mats = MaterialCollection::new();
+    let material_ground = mats.add(Material::mk_lambert(vec3(0.8, 0.8, 0.0))); // 0
+    let material_center = mats.add(Material::mk_lambert(vec3(0.7, 0.3, 0.3))); // 1
+    let material_left = mats.add(Material::mk_metal(vec3(0.8, 0.8, 0.8))); // 2
+    let material_right = mats.add(Material::mk_metal(vec3(0.8, 0.6, 0.2))); // 3
 
     let mut world = HittableObject::mk_list();
     world.push(HittableObject::Sphere(Sphere{center:vec3(0.0,-100.5,-1.0), radius:100.0, material:material_ground}));
