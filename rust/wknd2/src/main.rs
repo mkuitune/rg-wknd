@@ -69,7 +69,7 @@ fn ray_color_1(r : &Ray3) -> Vec3 {
     lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t)
 }
 
-fn ray_color(r : &Ray3, world:&dyn HitRay) -> Vec3 {
+fn ray_color_2(r : &Ray3, world:&dyn HitRay) -> Vec3 {
     let cfg= SamplingCfg::new(0.0, constants::INFINITY_F64);
     let rec = world.hit(r, cfg);
     match rec {
@@ -84,13 +84,39 @@ fn ray_color(r : &Ray3, world:&dyn HitRay) -> Vec3 {
     }
 }
 
+fn ray_color(mut r : Ray3, world:&dyn HitRay, mut depth:i32) -> Vec3 {
+    let mut col = Vec3::zeros();
+    let mut transmissibility = Vec3::ones();
+    while depth > 0 {
+        let cfg= SamplingCfg::new(0.001, constants::INFINITY_F64);
+        let rec = world.hit(&r, cfg);
+        match rec {
+            Some(hit) => {
+                let target = hit.p + hit.normal + Vec3::random_in_unit_sphere();
+                r = Ray3::new(hit.p, target - hit.p);
+                //let v = (hit.normal + vec3(1.0, 1.0, 1.0)) * 0.5;
+                transmissibility = transmissibility * 0.5;
+            },
+            None =>{
+                let udir = unit_vector(r.direction());
+                let t = 0.5 * (udir.y + 1.0);
+                let v = lerp3(vec3(1.0,1.0,1.0), vec3(0.5, 0.7, 1.0), t);
+                col = Vec3::mul_elements(v, transmissibility);
+                break;
+            }
+        }
+        depth = depth - 1;
+    }
+    col
+}
+
 fn do_draw(){
     // Image
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = 10;
-
+    let samples_per_pixel = 100;
+    let max_depth = 50;
     // World
     let mut world = HittableObject::mk_list();
     world.push(HittableObject::Sphere(Sphere{center:vec3(0.0,0.0,-1.0), radius:0.5}));
@@ -131,7 +157,7 @@ fn do_draw(){
                 let v = (fj + random_f64_normalized()) / f_h;
                 let r = cam.get_ray(u, v);
                 //let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
-                pixel_color = pixel_color + ray_color(&r, &world_obj);
+                pixel_color = pixel_color + ray_color(r, &world_obj, max_depth);
             }
             //write_color_stdout(col);
             write_color_file_multi(&mut file,pixel_color, samples_per_pixel );
