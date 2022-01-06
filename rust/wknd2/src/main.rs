@@ -62,8 +62,9 @@ struct Cfg{
     pub max_depth:i32
 }
 
-fn render_line(pixels:&mut Vec<i32>, cfg: &Cfg, cam:&Camera, hittable:&HittableObject, mats:&MaterialCollection, y:i32, ){
-        let fj = y as f64;
+//fn render_line(pixels:&mut Vec<i32>, cfg: &Cfg, cam:&Camera, hittable:&HittableObject, mats:&MaterialCollection, y:i32, ){
+fn render_line(pixels:&mut [i32], cfg: &Cfg, cam:&Camera, hittable:&HittableObject, mats:&MaterialCollection, y:i32, ){
+        let fj = (cfg.image_height - y -1) as f64;
         let f_w = (cfg.image_width - 1) as f64;
         let f_h = (cfg.image_height -1) as f64;
         for i in 0 .. cfg.image_width
@@ -77,7 +78,8 @@ fn render_line(pixels:&mut Vec<i32>, cfg: &Cfg, cam:&Camera, hittable:&HittableO
                 //let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
                 pixel_color = pixel_color + ray_color(r, hittable, &mats, cfg.max_depth);
             }
-            let idx = ((cfg.image_height - y - 1) * cfg.image_width + i) as usize;
+            //let idx = ((cfg.image_height - y - 1) * cfg.image_width + i) as usize;
+            let idx = (i) as usize;
             write_color_to_buf(pixels,idx,pixel_color, cfg.samples_per_pixel );
         }
 }
@@ -119,37 +121,23 @@ fn do_draw(){
     let f_h = (cfg.image_height -1) as f64;
 
     // Render
+
     let mut pb = ProgressBar::new(cfg.image_height as u64);
     //pb.format("╢▌▌░╟");
 
     let mut pixels = vec![0; (cfg.image_width * cfg.image_height * 3) as usize];
+    let chunk_size = (cfg.image_width * 3) as usize;
+    let mut bands: Vec<(usize, &mut [i32])> = pixels.chunks_mut(chunk_size).enumerate().collect();
+
     let mut file = File::create("out.ppm").unwrap();
-    //writeln!(file, "P3\n{} {}\n255", image_width, image_height);
-    {
-        let px = &mut pixels;
-    }
-    {
-        let px = &mut pixels;
-    }
-    for j in (0 .. cfg.image_height).rev() {
+
+    for j in (0 .. cfg.image_height){
         let fj = j as f64;
+        let ju = j as usize;
         pb.inc();
 
-        render_line(&mut pixels,&cfg, &cam, &world_obj, &mats, j);
-    //     for i in 0 .. image_width
-    //     {
-    //         let fi = i as f64;
-    //         let mut pixel_color = Vec3::zeros();
-    //         for s in 0 .. cfg.samples_per_pixel {
-    //             let u = (fi + random_f64_normalized()) / f_w;
-    //             let v = (fj + random_f64_normalized()) / f_h;
-    //             let r = cam.get_ray(u, v);
-    //             //let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
-    //             pixel_color = pixel_color + ray_color(r, &world_obj, &mats, cfg.max_depth);
-    //         }
-    //         let idx = ((cfg.image_height - j - 1) * cfg.image_width + i) as usize;
-    //         write_color_to_buf(&mut pixels,idx,pixel_color, cfg.samples_per_pixel );
-    //     }
+        //render_line(&mut pixels,&cfg, &cam, &world_obj, &mats, j);
+        render_line(bands[ju].1,&cfg, &cam, &world_obj, &mats, j);
     }
     writeln!(file, "P3\n{} {}\n255", cfg.image_width, cfg.image_height);
     write_color_file_vec(&mut file, pixels);

@@ -486,7 +486,8 @@ pub fn write_color_file_vec(file : &mut File, pixels : Vec<i32>){
     }
 }
 
-pub fn write_color_to_buf(pixels : &mut Vec<i32>, idx:usize,col : ColorRGB, samples_per_pixel:i32){
+//pub fn write_color_to_buf(pixels : &mut Vec<i32>, idx:usize,col : ColorRGB, samples_per_pixel:i32){
+pub fn write_color_to_buf(pixels : &mut [i32], idx:usize,col : ColorRGB, samples_per_pixel:i32){
     let scale = 1.0 / (samples_per_pixel as f64);
     let r = clampf64((col.x * scale).sqrt(), 0.0, 0.999);
     let g = clampf64((col.y * scale).sqrt(), 0.0, 0.999);
