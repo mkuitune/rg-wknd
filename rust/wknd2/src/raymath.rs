@@ -3,7 +3,7 @@ use std::iter::OnceWith;
 use std::ops::{Add, Sub, Mul, Div, Deref};
 use num::traits::Pow;
 use num::{NumCast, cast};
-use std::{rc::Rc, cmp};
+use std::{rc::Rc, cmp, io::BufWriter};
 use ordered_float::OrderedFloat;
 //rand
 
@@ -479,11 +479,18 @@ pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixe
     writeln!(file, "{} {} {}", ir, ig, ib); 
 }
 
-pub fn write_color_file_vec(file : &mut File, pixels : Vec<i32>){
-    for cl in (0 .. pixels.len()).step_by(3) {
+pub fn write_color_file_vec(file : &mut File,w:usize, h:usize, pixels : Vec<i32>){
+    let mut writer = BufWriter::new(file);
 
-        writeln!(file, "{} {} {}", pixels[cl],pixels[cl+1], pixels[cl+2]); 
+    writeln!(writer, "P3\n{} {}\n255", w, h);
+    for cl in (0 .. pixels.len()).step_by(3) {
+        writeln!(writer, "{} {} {}", pixels[cl],pixels[cl+1], pixels[cl+2]); 
     }
+
+//     writeln!(file, "P3\n{} {}\n255", w, h);
+//     for cl in (0 .. pixels.len()).step_by(3) {
+//         writeln!(file, "{} {} {}", pixels[cl],pixels[cl+1], pixels[cl+2]); 
+//     }
 }
 
 //pub fn write_color_to_buf(pixels : &mut Vec<i32>, idx:usize,col : ColorRGB, samples_per_pixel:i32){
@@ -540,6 +547,19 @@ impl Default for Camera {
 }
 
 impl Camera {
+    pub fn new(vfov:f64, aspect_ratio:f64)->Camera{
+        let theta = degrees_to_radians(vfov);
+        let h = f64::tan(theta/2.0);
+        let viewport_height = 2.0 * h;
+        let viewport_width = aspect_ratio * viewport_height;
+        let focal_length = 1.0;
+        let origin = Vec3::zeros();
+        let horizontal = vec3(viewport_width, 0.0, 0.0);
+        let vertical  = vec3(0.0, viewport_height, 0.0);
+        let lower_left_corner = origin - (horizontal/2.0)  - (vertical/2.0) - vec3(0.0, 0.0, focal_length);
+        Camera{origin:origin, horizontal:horizontal, vertical:vertical, lower_left_corner:lower_left_corner}
+    }
+
     pub fn get_ray(&self, u:f64, v:f64) -> Ray3{
         let raydir = self.lower_left_corner + (self.horizontal * u) + (self.vertical * v) - self.origin;
         Ray3::new(self.origin,raydir)
