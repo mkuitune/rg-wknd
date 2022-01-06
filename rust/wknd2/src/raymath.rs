@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use std::iter::OnceWith;
 use std::ops::{Add, Sub, Mul, Div, Deref};
+use num::traits::Pow;
 use num::{NumCast, cast};
 use std::{rc::Rc, cmp};
 use ordered_float::OrderedFloat;
@@ -243,7 +244,7 @@ struct Metal{
 }
 impl Metal{
     pub fn new(albedo:Vec3, f:f64) -> Metal {
-        let fuzz = if f < 1.0 {1.0} else{f};
+        let fuzz = if f < 1.0 {f} else{1.0};
         Metal{albedo:albedo, fuzz:fuzz}
     }
     fn scatter(&self, r_in:Ray3,rec:HitRecord) -> Option<ScatterResult>{
@@ -268,12 +269,22 @@ pub struct Dielectric{
 
 impl Dielectric{
     pub fn new(ir:f64) ->Dielectric{Dielectric{ir:ir}}
+    // Schlick reflectance
+    fn reflectance(cosine:f64, ref_idx:f64) -> f64{
+        let r0 = (1.0 - ref_idx) / (1.0 + ref_idx).powf(2.0);
+        r0 + (1.0 - r0) * f64::powf(1.0 - cosine, 5.0)
+    }
     fn scatter(&self, r_in:Ray3,rec:HitRecord) -> Option<ScatterResult>{
         let attenuation = vec3(1.0, 1.0, 1.0);
         let refraction_ratio = if rec.front_face {1.0 / self.ir} else {self.ir};
+
         let unit_direction = unit_vector(r_in.dir);
-        let refracted = refract(unit_direction, rec.normal, refraction_ratio);
-        let scattered = Ray3::new(rec.p, refracted);
+        let cos_theta = minf(dot(unit_direction * (-1.0), rec.normal), 1.0);
+        let sin_theta = (1.0 - cos_theta * cos_theta); 
+        let cannot_refract = refraction_ratio * sin_theta > 1.0;
+        let this_ray_reflects = Dielectric::reflectance(cos_theta, refraction_ratio) > random_f64_normalized();
+        let direction = if cannot_refract || this_ray_reflects {unit_direction.reflect(rec.normal)} else{refract(unit_direction, rec.normal, refraction_ratio)};
+        let scattered = Ray3::new(rec.p, direction);
         Some(ScatterResult{attenuation:attenuation, scattered:scattered})
     }
 }
