@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 use std::iter::OnceWith;
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Sub, Mul, Div, Deref};
 use num::{NumCast, cast};
-use std::{rc::Rc};
+use std::{rc::Rc, cmp};
+use ordered_float::OrderedFloat;
 //rand
 
 use rand::{Rng, thread_rng};
@@ -138,6 +139,23 @@ pub fn lerp3(a:Vec3, b:Vec3, t : f64) -> Vec3{
 
 pub fn dot(a:Vec3, b:Vec3) -> f64{a * b}
 
+pub fn minf(a:f64, b:f64) -> f64{
+    //*cmp::min(OrderedFloat(a), OrderedFloat(b)).deref()
+    if a < b {a} else {b}
+}
+
+pub fn maxf(a:f64, b:f64) -> f64{
+    if a > b {a} else {b}
+}
+
+pub fn refract(uv:Vec3, n:Vec3, etai_over_etat:f64) -> Vec3{
+    let cos_theta = minf(-1.0 *dot(uv, n), 1.0);
+    let r_out_perp =  (uv + n * cos_theta)* etai_over_etat;
+    let parn = (1.0 - r_out_perp.length2()).abs().sqrt() * (-1.0);
+    let r_out_parallel = n * parn;
+    r_out_perp + r_out_parallel
+}
+
 //
 // Ray3
 //
@@ -220,12 +238,17 @@ impl Lambertian{
 }
 #[derive(Debug)]
 struct Metal{
-    albedo:Vec3
+    albedo:Vec3,
+    fuzz:f64
 }
 impl Metal{
+    pub fn new(albedo:Vec3, f:f64) -> Metal {
+        let fuzz = if f < 1.0 {1.0} else{f};
+        Metal{albedo:albedo, fuzz:fuzz}
+    }
     fn scatter(&self, r_in:Ray3,rec:HitRecord) -> Option<ScatterResult>{
         let reflected = unit_vector(r_in.dir).reflect(rec.normal);
-        let scattered = Ray3::new(rec.p, reflected);
+        let scattered = Ray3::new(rec.p, reflected + (Vec3::random_in_unit_sphere() * self.fuzz));
 
         if scattered.dir * rec.normal > 0.0
         {
@@ -237,15 +260,35 @@ impl Metal{
         }
     }
 }
+
+#[derive(Debug)]
+pub struct Dielectric{
+    ir : f64
+}
+
+impl Dielectric{
+    pub fn new(ir:f64) ->Dielectric{Dielectric{ir:ir}}
+    fn scatter(&self, r_in:Ray3,rec:HitRecord) -> Option<ScatterResult>{
+        let attenuation = vec3(1.0, 1.0, 1.0);
+        let refraction_ratio = if rec.front_face {1.0 / self.ir} else {self.ir};
+        let unit_direction = unit_vector(r_in.dir);
+        let refracted = refract(unit_direction, rec.normal, refraction_ratio);
+        let scattered = Ray3::new(rec.p, refracted);
+        Some(ScatterResult{attenuation:attenuation, scattered:scattered})
+    }
+}
+
 #[derive(Debug)]
 pub enum Material{
     Lambertian(Lambertian),
-    Metal(Metal)
+    Metal(Metal),
+    Dielectric(Dielectric)
 }
 
 impl Material{
     pub fn mk_lambert(albedo:Vec3)->Material{Material::Lambertian(Lambertian{albedo:albedo})}
-    pub fn mk_metal(albedo:Vec3)->Material{Material::Metal(Metal{albedo:albedo})}
+    pub fn mk_metal(albedo:Vec3, fuzz:f64)->Material{Material::Metal(Metal::new(albedo, fuzz))}
+    pub fn mk_dielectric(ir:f64)->Material{Material::Dielectric(Dielectric::new(ir))}
 
     pub fn scatter(&self, r_in:Ray3, rec:HitRecord) ->Option<ScatterResult>{
         match self {
@@ -254,6 +297,9 @@ impl Material{
             }
             Material::Metal(metal) =>{
                 metal.scatter(r_in, rec)
+            }
+            Material::Dielectric(dielectric) =>{
+                dielectric.scatter(r_in, rec)
             }
             _ => None
         }
@@ -266,7 +312,7 @@ pub struct MaterialCollection{
 pub type MaterialId = usize;
 impl MaterialCollection{
     pub fn new()->MaterialCollection{MaterialCollection{materials:vec![]}}
-    pub fn add(&self, mat:Material)->MaterialId{
+    pub fn add(&mut self, mat:Material)->MaterialId{
         self.materials.push(mat);
         self.materials.len() - 1
     }

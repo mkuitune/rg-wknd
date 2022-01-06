@@ -65,9 +65,11 @@ fn do_draw(){
     // World
     let mut mats = MaterialCollection::new();
     let material_ground = mats.add(Material::mk_lambert(vec3(0.8, 0.8, 0.0))); // 0
-    let material_center = mats.add(Material::mk_lambert(vec3(0.7, 0.3, 0.3))); // 1
-    let material_left = mats.add(Material::mk_metal(vec3(0.8, 0.8, 0.8))); // 2
-    let material_right = mats.add(Material::mk_metal(vec3(0.8, 0.6, 0.2))); // 3
+    //let material_center = mats.add(Material::mk_lambert(vec3(0.7, 0.3, 0.3))); // 1
+    //let material_left = mats.add(Material::mk_metal(vec3(0.8, 0.8, 0.8), 0.3)); // 2
+    let material_center = mats.add(Material::mk_dielectric(1.5)); // 1
+    let material_left = mats.add(Material::mk_dielectric(1.5)); // 2
+    let material_right = mats.add(Material::mk_metal(vec3(0.8, 0.6, 0.2),1.0)); // 3
 
     let mut world = HittableObject::mk_list();
     world.push(HittableObject::Sphere(Sphere{center:vec3(0.0,-100.5,-1.0), radius:100.0, material:material_ground}));
