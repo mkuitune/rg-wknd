@@ -479,6 +479,28 @@ pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixe
     writeln!(file, "{} {} {}", ir, ig, ib); 
 }
 
+pub fn write_color_file_vec(file : &mut File, pixels : Vec<i32>){
+    for cl in (0 .. pixels.len()).step_by(3) {
+
+        writeln!(file, "{} {} {}", pixels[cl],pixels[cl+1], pixels[cl+2]); 
+    }
+}
+
+pub fn write_color_to_buf(pixels : &mut Vec<i32>, idx:usize,col : ColorRGB, samples_per_pixel:i32){
+    let scale = 1.0 / (samples_per_pixel as f64);
+    let r = clampf64((col.x * scale).sqrt(), 0.0, 0.999);
+    let g = clampf64((col.y * scale).sqrt(), 0.0, 0.999);
+    let b = clampf64((col.z * scale).sqrt(), 0.0, 0.999);
+
+    let ir = (256.0 * r) as i32;
+    let ig = (256.0 * g) as i32;
+    let ib = (256.0 * b) as i32;
+    pixels[idx*3] = ir;
+    pixels[idx*3 + 1] = ig;
+    pixels[idx*3 + 2] = ib;
+    //writeln!(file, "{} {} {}", ir, ig, ib); 
+}
+
 // constants
 pub mod constants{
     pub const INFINITY_F64 : f64= f64::MAX; 

@@ -10,7 +10,7 @@ use raymath::{Vec3, Ray3, vec3, lerp3, unit_vector,
 use std::fs::File;
 use std::io::Write;
 
-use crate::raymath::{write_color_file, Camera, random_f64_normalized, write_color_file_multi, Material};
+use crate::raymath::{write_color_file, Camera, random_f64_normalized, write_color_file_multi, Material, write_color_to_buf, write_color_file_vec};
 
 extern crate pbr;
 use pbr::ProgressBar;
@@ -54,6 +54,8 @@ fn ray_color(mut r : Ray3, world:&dyn HitRay, mats:&MaterialCollection, mut dept
     col
 }
 
+//fn render_line(){}
+
 fn do_draw(){
     // Image
     let aspect_ratio = 16.0 / 9.0;
@@ -91,10 +93,15 @@ fn do_draw(){
     let mut pb = ProgressBar::new(image_height as u64);
     //pb.format("╢▌▌░╟");
 
+    let mut pixels = vec![0; (image_width * image_height * 3) as usize];
     let mut file = File::create("out.ppm").unwrap();
-    //println!("P3\n{} {}\n255", image_width, image_height);
-    writeln!(file, "P3\n{} {}\n255", image_width, image_height);
-
+    //writeln!(file, "P3\n{} {}\n255", image_width, image_height);
+    {
+        let px = &mut pixels;
+    }
+    {
+        let px = &mut pixels;
+    }
     for j in (0 .. image_height).rev() {
         let fj = j as f64;
         pb.inc();
@@ -109,9 +116,12 @@ fn do_draw(){
                 //let r = Ray3::new(origin, lower_left_corner + (horizontal * u) + (vertical * v));
                 pixel_color = pixel_color + ray_color(r, &world_obj, &mats, max_depth);
             }
-            write_color_file_multi(&mut file,pixel_color, samples_per_pixel );
+            let idx = ((image_height - j - 1) * image_width + i) as usize;
+            write_color_to_buf(&mut pixels,idx,pixel_color, samples_per_pixel );
         }
     }
+    writeln!(file, "P3\n{} {}\n255", image_width, image_height);
+    write_color_file_vec(&mut file, pixels);
 }
 
 fn main() {
