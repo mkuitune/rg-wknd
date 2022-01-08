@@ -2,7 +2,7 @@
 use std::iter::OnceWith;
 use std::ops::{Add, Sub, Mul, Div, Deref};
 use num::traits::Pow;
-use num::{NumCast, cast};
+use num::{NumCast, cast, Num};
 use std::{rc::Rc, cmp, io::BufWriter};
 use ordered_float::OrderedFloat;
 //rand
@@ -24,6 +24,15 @@ pub struct Vec3 {
 }
 
 pub fn vec3(x : f64, y:f64, z:f64)->Vec3 {
+    Vec3{x:x, y:y, z:z}
+}
+
+pub fn castf64<T:NumCast>(v:T)->f64{cast(v).unwrap_or_default()}
+
+pub fn vec3g<T:NumCast>(xt : T, yt:T, zt:T)->Vec3 {
+    let x : f64 = castf64(xt);
+    let y : f64 = castf64(yt);
+    let z : f64 = castf64(zt);
     Vec3{x:x, y:y, z:z}
 }
 
@@ -68,14 +77,22 @@ impl Vec3 {
         Vec3{x:random_f64(min, max), y:random_f64(min, max), z:random_f64(min, max)}
     }
 
+    pub fn random_in_unit_disk() -> Vec3{
+        loop {
+            let v = Vec3{x:random_f64(-1.0, 1.0), y:random_f64(-1.0, 1.0), z:0.0};
+            if v.length2() < 1.0 {
+                return v;
+            }
+        }
+    }
+    
     pub fn random_in_unit_sphere() -> Vec3{
-        while true {
+        loop {
             let v = Vec3::random(-1.0, 1.0);
             if v.length2() < 1.0 {
                 return v;
             }
         }
-        return Vec3::zeros();
     }
 
     pub fn random_in_hemisphere(normal:Vec3) -> Vec3{
@@ -139,6 +156,12 @@ pub fn lerp3(a:Vec3, b:Vec3, t : f64) -> Vec3{
 }
 
 pub fn dot(a:Vec3, b:Vec3) -> f64{a * b}
+pub fn cross(a:Vec3, b:Vec3) -> Vec3{
+    let x = a.y * b.z - a.z * b.y;
+    let y = a.z * b.x - a.x * b.z;
+    let z = a.x * b.y - a.y* b.x;
+    Vec3{x:x, y:y, z:z}
+}
 
 pub fn minf(a:f64, b:f64) -> f64{
     //*cmp::min(OrderedFloat(a), OrderedFloat(b)).deref()
@@ -320,12 +343,22 @@ impl Material{
 pub struct MaterialCollection{
     pub materials:Vec<Material>
 }
+
 pub type MaterialId = usize;
 impl MaterialCollection{
     pub fn new()->MaterialCollection{MaterialCollection{materials:vec![]}}
     pub fn add(&mut self, mat:Material)->MaterialId{
         self.materials.push(mat);
         self.materials.len() - 1
+    }
+    pub fn add_lambert(&mut self, col:Vec3)->MaterialId{
+        self.add(Material::mk_lambert(col))
+    }
+    pub fn add_metal(&mut self, albedo:Vec3, fuzz:f64)->MaterialId{
+        self.add(Material::mk_metal(albedo, fuzz))
+    }
+    pub fn add_dielectric(&mut self, ir:f64)->MaterialId{
+        self.add(Material::mk_dielectric(ir))
     }
 }
 
@@ -365,10 +398,10 @@ impl Sphere {
     }
     
     pub fn new2<T:NumCast>(cx:T,cy:T,cz:T, r:T, mat:MaterialId) -> Sphere {
-        let vx = cast(cx).unwrap_or_default();
-        let vy = cast(cy).unwrap_or_default();
-        let vz = cast(cz).unwrap_or_default();
-        let sr = cast(r).unwrap_or_default();
+        let vx = castf64(cx);
+        let vy = castf64(cy);
+        let vz = castf64(cz);
+        let sr = castf64(r);
         Sphere{center:vec3(vx, vy,vz), radius:sr, material:mat}
     }
 }
@@ -441,6 +474,12 @@ impl HitRay for HittableObject{
     }
 }
 
+pub fn mk_sphere(x:f64, y:f64, z:f64, r:f64, mat:MaterialId)->HittableObject{
+    HittableObject::Sphere(Sphere{center:vec3(x,y,z), radius:r, material:mat})
+}
+pub fn mk_sphere2(center:Vec3, r:f64, mat:MaterialId)->HittableObject{
+    HittableObject::Sphere(Sphere{center:center, radius:r, material:mat})
+}
 // Color
 
 use Vec3 as ColorRGB;
@@ -526,9 +565,16 @@ pub struct Camera{
     pub origin : Vec3,
     pub horizontal : Vec3,
     pub vertical : Vec3,
-    pub lower_left_corner : Vec3
+    pub lower_left_corner : Vec3,
+    pub u : Vec3,
+    pub v : Vec3,
+    pub w : Vec3,
+    pub lens_radius:f64
 }
+
+/* 
 impl Default for Camera {
+
     fn default() -> Camera{
         let aspect_ratio:f64 = 16.0 / 9.0;
         let viewport_height:f64 = 2.0;
@@ -545,9 +591,11 @@ impl Default for Camera {
         }
     }
 }
+*/
 
 impl Camera {
-    pub fn new(vfov:f64, aspect_ratio:f64)->Camera{
+    /* 
+    pub fn new_simple(vfov:f64, aspect_ratio:f64)->Camera{
         let theta = degrees_to_radians(vfov);
         let h = f64::tan(theta/2.0);
         let viewport_height = 2.0 * h;
@@ -559,9 +607,40 @@ impl Camera {
         let lower_left_corner = origin - (horizontal/2.0)  - (vertical/2.0) - vec3(0.0, 0.0, focal_length);
         Camera{origin:origin, horizontal:horizontal, vertical:vertical, lower_left_corner:lower_left_corner}
     }
+     */
+    
+    pub fn new(
+        lookfrom:Vec3,
+        lookat:Vec3,
+        vup:Vec3, 
+        vfov:f64,
+        aspect_ratio:f64,
+        aperture:f64,
+        focus_dist:f64
+    )->Camera{
+        let theta = degrees_to_radians(vfov);
+        let h = f64::tan(theta/2.0);
+        let viewport_height = 2.0 * h;
+        let viewport_width = aspect_ratio * viewport_height;
 
-    pub fn get_ray(&self, u:f64, v:f64) -> Ray3{
-        let raydir = self.lower_left_corner + (self.horizontal * u) + (self.vertical * v) - self.origin;
-        Ray3::new(self.origin,raydir)
+        let w = unit_vector(lookfrom - lookat);
+        let u = unit_vector(cross(vup,w));
+        let v = cross(w, u);
+
+        let origin = lookfrom;
+
+        let horizontal =  u * (viewport_width * focus_dist);
+        let vertical  =  v * (viewport_height * focus_dist);
+        let lower_left_corner = origin - horizontal * 0.5 - vertical * 0.5 - w*focus_dist;
+        let lens_radius = aperture / 2.0;
+        Camera{origin:origin, horizontal:horizontal, vertical:vertical, lower_left_corner:lower_left_corner, 
+            u:u, v:v, w:w, lens_radius:lens_radius}
+    }
+
+    pub fn get_ray(&self, s:f64, t:f64) -> Ray3{
+        let rd = Vec3::random_in_unit_disk() * self.lens_radius;
+        let offset = self.u * rd.x + self.v * rd.y;
+        let raydir = self.lower_left_corner + (self.horizontal * s) + (self.vertical * t) - self.origin - offset;
+        Ray3::new(self.origin + offset,raydir)
     }
 }

@@ -2,20 +2,23 @@
 #![allow(dead_code)]
 
 mod raymath;
-
+use std::sync::{Arc, Mutex};
+use std::thread;
 use raymath::{Vec3, Ray3, vec3, lerp3, unit_vector, 
     hit_sphere, write_color_stdout, 
-    HitRecord, HittableObject, constants, SamplingCfg, Sphere, HitRay, MaterialCollection};
+    HitRecord, HittableObject, constants, SamplingCfg, Sphere, HitRay, MaterialCollection, mk_sphere, random_f64, mk_sphere2};
 
-use std::fs::File;
-use std::io::Write;
+use std::{fs::File, f64::consts::PI};
+use std::io::{Write, Stdout};
 use std::time::Instant;
 use rayon::prelude::*;
 
-use crate::raymath::{write_color_file, Camera, random_f64_normalized, write_color_file_multi, Material, write_color_to_buf, write_color_file_vec};
+use raymath::{write_color_file, Camera, random_f64_normalized, write_color_file_multi, Material, write_color_to_buf, write_color_file_vec};
 
 extern crate pbr;
 use pbr::ProgressBar;
+
+use crate::raymath::vec3g;
 
 fn ray_color(mut r : Ray3, world:&dyn HitRay, mats:&MaterialCollection, mut depth:i32) -> Vec3 {
     let mut col = Vec3::zeros();
@@ -109,38 +112,117 @@ fn build_world_1() -> (HittableObject, MaterialCollection) {
     (HittableObject::wrap(world),mats)
 }
 
+fn build_world_2() -> (HittableObject, MaterialCollection) {
+    // World
+    let R = f64::cos(PI / 4.0);
+
+    let mut mats = MaterialCollection::new();
+    let material_left = mats.add(Material::mk_lambert(vec3(0.0,0.0,1.0))); // 2
+    let material_right = mats.add(Material::mk_lambert(vec3(1.0,0.0,0.0))); // 2
+
+    let mut world = HittableObject::mk_list();
+    world.push(HittableObject::Sphere(Sphere{center:vec3(-R,0.0,-1.0), radius:R, material:material_left}));
+    world.push(HittableObject::Sphere(Sphere{center:vec3(R,0.0,-1.0), radius:R, material:material_right}));
+
+    (HittableObject::wrap(world),mats)
+}
+
+fn build_world_3() -> (HittableObject, MaterialCollection) {
+    // World
+    let R = f64::cos(PI / 4.0);
+    let mut world = HittableObject::mk_list();
+    let mut mats = MaterialCollection::new();
+
+    let ground_material = mats.add(Material::mk_lambert(vec3(0.5,0.5,0.5))); 
+    world.push(mk_sphere(0.0, -1000.0, 0.0, 1000.0, ground_material));
+
+    let rnd = || random_f64_normalized();
+    for a in (-11 .. 11){
+        for b in (-11 .. 11){
+            let af = a as f64;
+            let bf = b as f64;
+            let choose_mat = rnd(); 
+            let center = vec3(af + 0.9 * rnd() , 0.2, bf + 0.9 * rnd());
+            if (center - vec3(4.0, 0.2, 0.0)).length() <= 0.9 {continue;}
+
+            let sphere_mat = if choose_mat < 0.8 {
+                let albedo = Vec3::random(0.0, 1.0).mul_elements(Vec3::random(0.0,1.0));
+                mats.add_lambert(albedo)
+            }
+            else if choose_mat < 0.95 {
+                let albedo = Vec3::random(0.5, 1.0);
+                let fuzz = random_f64(0.0, 0.5);
+                mats.add_metal(albedo, fuzz)
+            }
+            else {
+                mats.add_dielectric(1.5)
+            };
+            world.push(mk_sphere2(center, 0.2, sphere_mat));
+        }
+    }
+
+    let mat1 = mats.add_dielectric(1.5);
+    world.push(mk_sphere(0.0, 1.0, 0.0, 1.0, mat1));
+    let mat2 = mats.add_lambert(vec3(0.4, 0.2, 0.1));
+    world.push(mk_sphere(-4.0, 1.0, 0.0, 1.0, mat2));
+    let mat3 = mats.add_metal(vec3(0.7, 0.6, 0.5), 0.0);
+    world.push(mk_sphere(4.0, 1.0, 0.0, 1.0, mat3));
+
+    (HittableObject::wrap(world),mats)
+}
+
 fn do_draw(){
     // Image
     //let image_width =600;
     //let image_width =3000;
     //let image_width =1920;
     let image_width =1200;
-    let aspect_ratio = 16.0 / 9.0;
+    //let aspect_ratio = 16.0 / 9.0;
+    let aspect_ratio = 3.0 / 2.0;
     let cfg = Cfg{
         aspect_ratio : aspect_ratio,
         image_width : image_width,
         image_height : (image_width as f64 / aspect_ratio) as i32,
+        //samples_per_pixel : 100,
         samples_per_pixel : 100,
         max_depth : 50
     };
 
     //let world_obj = HittableObject::wrap(world);
-    let (world_obj, mats) = build_world_1();
+    //let (world_obj, mats) = build_world_1();
+    let (world_obj, mats) = build_world_3();
+    //let (world_obj, mats) = build_world_2();
 
     // camera
-    let mut cam = Camera::default();
+    //let mut cam = Camera::default();
+    //let mut cam = Camera::new_simple(90.0, aspect_ratio);
+    //let mut cam = Camera::new(vec3g(-2, 2, 1), vec3g(0, 0, -1), vec3g(0,1,0), 90.0, aspect_ratio);
+    //let mut cam = Camera::new(vec3g(-2, 2, 1), vec3g(0, 0, -1), vec3g(0,1,0), 20.0, aspect_ratio);
+
+    //let lookfrom = vec3g(3,3,2);
+    let lookfrom = vec3g(13,2,3);
+    //let lookat = vec3g(0,0,-1);
+    let lookat = vec3g(0,0,0);
+    let vup = vec3g(0,1,0);
+    //let dist_to_focust = (lookat - lookfrom).length();
+    let dist_to_focust = 10.0;
+    //let aperture = 2.0;
+    let aperture = 0.1;
+
+    let mut cam = Camera::new(lookfrom, lookat, vup, 20.0, aspect_ratio, aperture, dist_to_focust);
 
     let f_w = (cfg.image_width - 1) as f64;
     let f_h = (cfg.image_height -1) as f64;
 
     // Render
 
-    let mut pb = ProgressBar::new(cfg.image_height as u64);
     //pb.format("╢▌▌░╟");
 
     let mut pixels = vec![0; (cfg.image_width * cfg.image_height * 3) as usize];
     let chunk_size = (cfg.image_width * 3) as usize;
     let mut bands: Vec<(usize, &mut [i32])> = pixels.chunks_mut(chunk_size).enumerate().collect();
+    //let mut pb : Arc<ProgressBar<Stdout>> = Arc::new(ProgressBar::new(bands.len() as u64));
+    let mut pb  = Mutex::new(ProgressBar::new(bands.len() as u64));
 
 
     // for j in (0 .. cfg.image_height){
@@ -154,6 +236,7 @@ fn do_draw(){
 
     let start = Instant::now();
     bands.into_par_iter().for_each(|(i,band)| {
+        pb.lock().unwrap().inc();
         render_line(band,&cfg, &cam, &world_obj, &mats, i as i32);
     });
     println!("Frame time: {}ms", start.elapsed().as_millis());
