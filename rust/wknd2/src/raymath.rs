@@ -5,6 +5,7 @@ use num::traits::Pow;
 use num::{NumCast, cast, Num};
 use std::{rc::Rc, cmp, io::BufWriter};
 use ordered_float::OrderedFloat;
+use image::{GenericImage, GenericImageView, ImageBuffer, RgbImage};
 //rand
 
 use rand::{Rng, thread_rng};
@@ -518,7 +519,26 @@ pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixe
     writeln!(file, "{} {} {}", ir, ig, ib); 
 }
 
+pub fn write_color_file_vec_img(path:&str, w:u32, h:u32, pixels : Vec<i32>){
+    let mut imgbuf = image::ImageBuffer::new(w, h);
+   
+    for i in 0 .. h {
+        for j in 0 .. w {
+            let cl = ((i * w + j)*3) as usize;
+            let pixel = imgbuf.get_pixel_mut(j, i);
+            let r  = pixels[cl] as u8;
+            let g  = pixels[cl + 1] as u8;
+            let b  = pixels[cl + 2] as u8;
+            *pixel = image::Rgb([r, g, b]);
+
+        }
+    }
+    imgbuf.save(path).unwrap();
+}
+
 pub fn write_color_file_vec(path:&str, w:usize, h:usize, pixels : Vec<i32>){
+    write_color_file_vec_img(path, w as u32, h as u32, pixels);
+    return;
     let mut file = File::create(path).unwrap();
     let mut writer = BufWriter::new(file);
 

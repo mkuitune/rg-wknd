@@ -242,7 +242,7 @@ fn do_draw(){
     });
     println!("Frame time: {}ms", start.elapsed().as_millis());
     //let mut file = File::create("out.ppm").unwrap();
-    write_color_file_vec("out.ppm", cfg.image_width as usize, cfg.image_height as usize, pixels);
+    write_color_file_vec("out.png", cfg.image_width as usize, cfg.image_height as usize, pixels);
 }
 
 fn main() {
