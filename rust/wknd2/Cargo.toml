@@ -11,4 +11,4 @@ rand = "^0"
 pbr = "^1"
 ordered-float = "^2"
 rayon = "^1"
-
+image = "*"

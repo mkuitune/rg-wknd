@@ -518,7 +518,8 @@ pub fn write_color_file_multi(file : &mut File, col : ColorRGB, samples_per_pixe
     writeln!(file, "{} {} {}", ir, ig, ib); 
 }
 
-pub fn write_color_file_vec(file : &mut File,w:usize, h:usize, pixels : Vec<i32>){
+pub fn write_color_file_vec(path:&str, w:usize, h:usize, pixels : Vec<i32>){
+    let mut file = File::create(path).unwrap();
     let mut writer = BufWriter::new(file);
 
     writeln!(writer, "P3\n{} {}\n255", w, h);

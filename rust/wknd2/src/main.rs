@@ -14,6 +14,7 @@ use std::time::Instant;
 use rayon::prelude::*;
 
 use raymath::{write_color_file, Camera, random_f64_normalized, write_color_file_multi, Material, write_color_to_buf, write_color_file_vec};
+use image::{GenericImage, GenericImageView, ImageBuffer, RgbImage};
 
 extern crate pbr;
 use pbr::ProgressBar;
@@ -173,10 +174,10 @@ fn build_world_3() -> (HittableObject, MaterialCollection) {
 
 fn do_draw(){
     // Image
-    //let image_width =600;
+    let image_width =600;
     //let image_width =3000;
     //let image_width =1920;
-    let image_width =1200;
+    //let image_width =1200;
     //let aspect_ratio = 16.0 / 9.0;
     let aspect_ratio = 3.0 / 2.0;
     let cfg = Cfg{
@@ -189,8 +190,8 @@ fn do_draw(){
     };
 
     //let world_obj = HittableObject::wrap(world);
-    //let (world_obj, mats) = build_world_1();
-    let (world_obj, mats) = build_world_3();
+    let (world_obj, mats) = build_world_1();
+    //let (world_obj, mats) = build_world_3();//fin
     //let (world_obj, mats) = build_world_2();
 
     // camera
@@ -240,8 +241,8 @@ fn do_draw(){
         render_line(band,&cfg, &cam, &world_obj, &mats, i as i32);
     });
     println!("Frame time: {}ms", start.elapsed().as_millis());
-    let mut file = File::create("out.ppm").unwrap();
-    write_color_file_vec(&mut file, cfg.image_width as usize, cfg.image_height as usize, pixels);
+    //let mut file = File::create("out.ppm").unwrap();
+    write_color_file_vec("out.ppm", cfg.image_width as usize, cfg.image_height as usize, pixels);
 }
 
 fn main() {
