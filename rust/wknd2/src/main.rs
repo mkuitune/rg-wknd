@@ -190,8 +190,8 @@ fn do_draw(){
     };
 
     //let world_obj = HittableObject::wrap(world);
-    let (world_obj, mats) = build_world_1();
-    //let (world_obj, mats) = build_world_3();//fin
+    //let (world_obj, mats) = build_world_1();
+    let (world_obj, mats) = build_world_3();//fin
     //let (world_obj, mats) = build_world_2();
 
     // camera
